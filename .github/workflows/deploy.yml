@@ -36,9 +36,13 @@ jobs:
       - name: Install dependencies
         run: npm install # OU yarn install, se você usa Yarn
 
+      # NOVO PASSO DE DIAGNÓSTICO: Listar conteúdo de node_modules/.bin
+      - name: Debug node_modules/.bin contents
+        run: ls -l node_modules/.bin
+
       # 4. Faz o build do seu aplicativo React com Vite
       - name: Build React App
-        run: npx vite build # ALTERAÇÃO AQUI: AGORA USAMOS NPX
+        run: npx vite build # Já alterado para npx vite build
 
       # 5. Configura o GitHub Pages para o deploy
       - name: Setup Pages
