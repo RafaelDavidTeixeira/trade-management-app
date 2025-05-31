@@ -38,7 +38,7 @@ jobs:
 
       # 4. Faz o build do seu aplicativo React com Vite
       - name: Build React App
-        run: npm run build # OU yarn build, se você usa Yarn
+        run: npx vite build # ALTERAÇÃO AQUI: AGORA USAMOS NPX
 
       # 5. Configura o GitHub Pages para o deploy
       - name: Setup Pages
