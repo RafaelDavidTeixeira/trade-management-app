@@ -1,103 +1,133 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-const CapitalManagement = ({
-  stopLoss,
-  setStopLoss,
-  stopWin,
+const CapitalManagement = ({ 
+  stopLoss, 
+  setStopLoss, 
+  stopWin, 
   setStopWin,
   stopLossType,
   setStopLossType,
   stopWinType,
   setStopWinType,
-  initialBankroll, // Propriedade não utilizada diretamente neste componente para cálculos de %
-  currentBankroll, // Recebe a banca atual como prop para cálculos
-  entryPercentage, // Nova prop para a porcentagem de entrada
-  setEntryPercentage, // Nova prop para atualizar a porcentagem de entrada
+  initialBankroll
 }) => {
-  // Garante que currentBankroll é um número para evitar erros de toFixed
-  const safeCurrentBankroll = typeof currentBankroll === 'number' ? currentBankroll : parseFloat(currentBankroll || 0);
-
-  // Calcula os valores efetivos de Stop Loss e Stop Win com base na banca atual
-  const effectiveStopLossValue = stopLossType === '%'
-    ? (safeCurrentBankroll * (stopLoss / 100))
-    : parseFloat(stopLoss);
-
-  const effectiveStopWinValue = stopWinType === '%'
-    ? (safeCurrentBankroll * (stopWin / 100))
-    : parseFloat(stopWin);
+  // Função para calcular o valor equivalente em R$ quando o tipo é %
+  const getPercentValue = (value, type, bankroll) => {
+    if (type === '%') {
+      return ((bankroll || 0) * (value / 100)).toFixed(2);
+    }
+    return value;
+  };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-4 text-primary">Regras de Capital</h2>
-
-      <div className="mb-6">
-        <h3 className="font-semibold text-lg mb-3 text-gray-700">Stop Loss (Limite de Perda)</h3>
-        <div className="flex items-center space-x-4 mb-4">
-          <input
-            type="number"
-            step="0.01"
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            value={stopLoss}
-            onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
-            placeholder="Valor do Stop Loss"
-          />
-          <select
-            className="shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            value={stopLossType}
-            onChange={(e) => setStopLossType(e.target.value)}
-          >
-            <option value="R$">R$</option>
-            <option value="%">%</option>
-          </select>
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Regras de Capital</h2>
+      
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Stop Loss
+              </label>
+              <div className="flex border border-gray-300 rounded-md overflow-hidden">
+                <button
+                  type="button"
+                  className={`px-3 py-1 text-xs ${stopLossType === 'R$' ? 'bg-primary text-white' : 'bg-gray-100'}`}
+                  onClick={() => setStopLossType('R$')}
+                >
+                  R$
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 text-xs ${stopLossType === '%' ? 'bg-primary text-white' : 'bg-gray-100'}`}
+                  onClick={() => setStopLossType('%')}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="number"
+                value={stopLoss}
+                onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
+                step="0.01"
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="ml-2 text-sm font-medium">{stopLossType}</span>
+            </div>
+            <p className="text-sm text-gray-600 mt-1">
+              Valor máximo de perda diária permitida.
+              {stopLossType === '%' && initialBankroll > 0 && (
+                <span className="block text-xs text-gray-500 mt-1">
+                  Equivalente a R$ {getPercentValue(stopLoss, stopLossType, initialBankroll)}
+                </span>
+              )}
+            </p>
+          </div>
+          
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Stop Win
+              </label>
+              <div className="flex border border-gray-300 rounded-md overflow-hidden">
+                <button
+                  type="button"
+                  className={`px-3 py-1 text-xs ${stopWinType === 'R$' ? 'bg-primary text-white' : 'bg-gray-100'}`}
+                  onClick={() => setStopWinType('R$')}
+                >
+                  R$
+                </button>
+                <button
+                  type="button"
+                  className={`px-3 py-1 text-xs ${stopWinType === '%' ? 'bg-primary text-white' : 'bg-gray-100'}`}
+                  onClick={() => setStopWinType('%')}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="number"
+                value={stopWin}
+                onChange={(e) => setStopWin(parseFloat(e.target.value) || 0)}
+                step="0.01"
+                min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="ml-2 text-sm font-medium">{stopWinType}</span>
+            </div>
+            <p className="text-sm text-gray-600 mt-1">
+              Valor de lucro diário para encerrar as operações.
+              {stopWinType === '%' && initialBankroll > 0 && (
+                <span className="block text-xs text-gray-500 mt-1">
+                  Equivalente a R$ {getPercentValue(stopWin, stopWinType, initialBankroll)}
+                </span>
+              )}
+            </p>
+          </div>
         </div>
-        <p className="text-gray-600 text-sm">
-          Se o Stop Loss for em porcentagem, ele será calculado sobre a **Banca Atual** (R$ {safeCurrentBankroll.toFixed(2)}).
-          Valor efetivo de Stop Loss: <span className="font-bold text-red-600">R$ {effectiveStopLossValue.toFixed(2)}</span>
-        </p>
-      </div>
-
-      <div className="mb-6">
-        <h3 className="font-semibold text-lg mb-3 text-gray-700">Stop Win (Meta de Lucro)</h3>
-        <div className="flex items-center space-x-4 mb-4">
-          <input
-            type="number"
-            step="0.01"
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            value={stopWin}
-            onChange={(e) => setStopWin(parseFloat(e.target.value) || 0)}
-            placeholder="Valor do Stop Win"
-          />
-          <select
-            className="shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            value={stopWinType}
-            onChange={(e) => setStopWinType(e.target.value)}
-          >
-            <option value="R$">R$</option>
-            <option value="%">%</option>
-          </select>
+        
+        <div className="mt-4">
+          <div className="p-3 bg-blue-50 text-blue-800 rounded-md">
+            <h4 className="font-medium mb-1">Como funcionam as regras de capital?</h4>
+            <p className="text-sm">
+              O <strong>Stop Loss</strong> é um mecanismo de proteção que alerta quando suas perdas atingem o valor definido, ajudando a limitar prejuízos.
+            </p>
+            <p className="text-sm mt-2">
+              O <strong>Stop Win</strong> é uma meta de lucro que, quando atingida, sugere encerrar as operações do dia para proteger os ganhos obtidos.
+            </p>
+            {(stopLossType === '%' || stopWinType === '%') && (
+              <p className="text-sm mt-2">
+                <strong>Valores em porcentagem</strong> são calculados com base no seu capital inicial de R$ {initialBankroll.toFixed(2)}.
+              </p>
+            )}
+          </div>
         </div>
-        <p className="text-gray-600 text-sm">
-          Se o Stop Win for em porcentagem, ele será calculado sobre a **Banca Atual** (R$ {safeCurrentBankroll.toFixed(2)}).
-          Valor efetivo de Stop Win: <span className="font-bold text-green-600">R$ {effectiveStopWinValue.toFixed(2)}</span>
-        </p>
-      </div>
-
-      <div className="mb-6">
-        <h3 className="font-semibold text-lg mb-3 text-gray-700">Porcentagem de Entrada Sugerida</h3>
-        <div className="flex items-center space-x-4 mb-4">
-          <input
-            type="number"
-            step="0.1"
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            value={entryPercentage}
-            onChange={(e) => setEntryPercentage(parseFloat(e.target.value) || 0)}
-            placeholder="Ex: 1.0"
-          />
-          <span className="text-gray-700">%</span>
-        </div>
-        <p className="text-gray-600 text-sm">
-          Defina a porcentagem da sua Banca Atual (R$ {safeCurrentBankroll.toFixed(2)}) que você deseja usar como valor de entrada sugerido para novas operações.
-        </p>
       </div>
     </div>
   );

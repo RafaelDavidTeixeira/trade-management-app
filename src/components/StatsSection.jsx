@@ -1,79 +1,159 @@
 import React from 'react';
 
-const StatsSection = ({ stats, initialBankroll, currentBankroll, runningTotal, dailyGoal, goalType, dailyReport, entryPercentage }) => {
-  // Garante que os valores são números antes de formatar para exibição
-  const formattedInitialBankroll = typeof initialBankroll === 'number' ? initialBankroll.toFixed(2) : parseFloat(initialBankroll || 0).toFixed(2);
-  const formattedCurrentBankroll = typeof currentBankroll === 'number' ? currentBankroll.toFixed(2) : parseFloat(currentBankroll || 0).toFixed(2);
-  const formattedRunningTotal = typeof runningTotal === 'number' ? runningTotal.toFixed(2) : parseFloat(runningTotal || 0).toFixed(2);
-
-  // Calcula o valor de entrada sugerido com base na banca atual e na porcentagem definida
-  const suggestedEntryAmount = (currentBankroll * (entryPercentage / 100)).toFixed(2);
+const StatsSection = ({ stats = {}, initialBankroll = 0, currentBankroll = 0, runningTotal = '0.00', dailyGoal = 0, goalType = 'R$' }) => {
+  // Garantir que stats tenha valores padrão para todas as propriedades
+  const safeStats = {
+    tradeCount: 0,
+    hitRate: '0.00',
+    gains: '0.00',
+    losses: '0.00',
+    ties: 0,
+    wins: 0,
+    lossCount: 0,
+    tieCount: 0,
+    avgReturn: '0.00',
+    totalBet: '0.00',
+    bestTrade: '0.00',
+    worstTrade: '0.00',
+    finalBalance: '0.00',
+    ...stats
+  };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-4 text-primary">Estatísticas Gerais</h2>
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Estatísticas Gerais</h2>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Resumo da Banca */}
-        <div className="bg-gray-50 p-4 rounded-md">
-          <h3 className="font-semibold text-lg mb-2">Resumo da Banca</h3>
-          <p>Banca Inicial: <span className="font-bold">R$ {formattedInitialBankroll}</span></p>
-          <p>Lucro/Prejuízo das Operações: <span className={`font-bold ${runningTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {formattedRunningTotal}</span></p>
-          <p className="text-xl">Banca Atual: <span className="font-bold text-green-600">R$ {formattedCurrentBankroll}</span></p>
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium mb-2">Desempenho</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total de Operações:</span>
+              <span className="font-medium">{safeStats.tradeCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Taxa de Acerto:</span>
+              <span className="font-medium">{safeStats.hitRate}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Ganhos:</span>
+              <span className="font-medium text-green-600">R$ {safeStats.gains}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Perdas:</span>
+              <span className="font-medium text-red-600">R$ {safeStats.losses}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Empates:</span>
+              <span className="font-medium">{safeStats.ties}</span>
+            </div>
+          </div>
         </div>
-
-        {/* Desempenho Geral */}
-        <div className="bg-gray-50 p-4 rounded-md">
-          <h3 className="font-semibold text-lg mb-2">Desempenho Geral</h3>
-          <p>Total de Operações: <span className="font-bold">{stats.tradeCount}</span></p>
-          <p>Vitórias: <span className="font-bold text-green-600">{stats.wins}</span></p>
-          <p>Derrotas: <span className="font-bold text-red-600">{stats.lossCount}</span></p>
-          <p>Empates: <span className="font-bold text-gray-600">{stats.tieCount}</span></p>
-          <p>Taxa de Vitória: <span className="font-bold">{stats.winRate.toFixed(2)}%</span></p>
-          <p>Retorno Médio por Operação: <span className={`font-bold ${stats.avgReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {stats.avgReturn.toFixed(2)}</span></p>
+        
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium mb-2">Resultados</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Operações Ganhas:</span>
+              <span className="font-medium text-green-600">{safeStats.wins}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Operações Perdidas:</span>
+              <span className="font-medium text-red-600">{safeStats.lossCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Operações Empatadas:</span>
+              <span className="font-medium">{safeStats.tieCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Retorno Médio:</span>
+              <span className={`font-medium ${parseFloat(safeStats.avgReturn) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                R$ {safeStats.avgReturn}
+              </span>
+            </div>
+          </div>
         </div>
-
-        {/* Resultados Financeiros */}
-        <div className="bg-gray-50 p-4 rounded-md">
-          <h3 className="font-semibold text-lg mb-2">Resultados Financeiros</h3>
-          <p>Total Apostado: <span className="font-bold">R$ {stats.totalBet.toFixed(2)}</span></p>
-          <p>Ganhos Brutos: <span className="font-bold text-green-600">R$ {stats.gains.toFixed(2)}</span></p>
-          <p>Perdas Brutas: <span className="font-bold text-red-600">R$ {stats.losses.toFixed(2)}</span></p>
-          <p className="text-xl">Saldo Final: <span className={`font-bold ${stats.finalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {stats.finalBalance.toFixed(2)}</span></p>
+        
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium mb-2">Valores</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total Apostado:</span>
+              <span className="font-medium">R$ {safeStats.totalBet}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Melhor Operação:</span>
+              <span className="font-medium text-green-600">R$ {safeStats.bestTrade}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Pior Operação:</span>
+              <span className="font-medium text-red-600">R$ {safeStats.worstTrade}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Saldo Final:</span>
+              <span className={`font-medium ${parseFloat(safeStats.finalBalance) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                R$ {safeStats.finalBalance}
+              </span>
+            </div>
+          </div>
         </div>
-
-        {/* Progresso da Meta Diária */}
-        <div className="bg-gray-50 p-4 rounded-md">
-          <h3 className="font-semibold text-lg mb-2">Progresso da Meta Diária</h3>
-          <p>Lucro/Prejuízo Diário: <span className={`font-bold ${(dailyReport.dailyProfitLoss || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {(dailyReport.dailyProfitLoss || 0).toFixed(2)}</span></p>
-          <p>Meta Diária: <span className="font-bold">{goalType === '%' ? `${dailyGoal}%` : `R$ ${dailyGoal.toFixed(2)}`}</span></p>
-          <p>Progresso da Meta: <span className="font-bold">{(dailyReport.goalProgress || 0).toFixed(2)}%</span></p>
-          {(dailyReport.metDailyGoal) ? (
-            <p className="text-green-600 font-bold">Meta Diária Atingida! (Excedeu em R$ {(dailyReport.exceeded || 0).toFixed(2)})</p>
-          ) : (
-            <p className="text-red-600 font-bold">Faltam R$ {(dailyReport.shortfall || 0).toFixed(2)} para a meta.</p>
-          )}
+        
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium mb-2">Capital</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Capital Inicial:</span>
+              <span className="font-medium">R$ {parseFloat(initialBankroll).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Lucro/Prejuízo:</span>
+              <span className={`font-medium ${parseFloat(runningTotal) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                R$ {runningTotal}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Capital Atual:</span>
+              <span className={`font-medium ${currentBankroll >= initialBankroll ? 'text-green-600' : 'text-red-600'}`}>
+                R$ {parseFloat(currentBankroll).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Variação:</span>
+              <span className={`font-medium ${currentBankroll >= initialBankroll ? 'text-green-600' : 'text-red-600'}`}>
+                {initialBankroll > 0 
+                  ? `${((currentBankroll / initialBankroll - 1) * 100).toFixed(2)}%` 
+                  : '0.00%'}
+              </span>
+            </div>
+          </div>
         </div>
-
-        {/* Novo quadro para Valor de Entrada Sugerido */}
-        <div className="bg-gray-50 p-4 rounded-md">
-          <h3 className="font-semibold text-lg mb-2">Valor de Entrada Sugerido</h3>
-          <p>Baseado em {entryPercentage}% da Banca Atual:</p>
-          <p className="text-xl font-bold text-purple-600">R$ {suggestedEntryAmount}</p>
-        </div>
-
-        {/* Melhor e Pior Operação */}
-        <div className="bg-gray-50 p-4 rounded-md">
-          <h3 className="font-semibold text-lg mb-2">Melhor e Pior Operação</h3>
-          {stats.bestTrade ? (
-            <p>Melhor Operação: <span className="font-bold text-green-600">{stats.bestTrade.asset} (R$ {stats.bestTrade.profitLoss.toFixed(2)})</span></p>
-          ) : (
-            <p>N/A</p>
-          )}
-          {stats.worstTrade ? (
-            <p>Pior Operação: <span className="font-bold text-red-600">{stats.worstTrade.asset} (R$ {stats.worstTrade.profitLoss.toFixed(2)})</span></p>
-          ) : (
-            <p>N/A</p>
-          )}
+        
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium mb-2">Progresso da Meta Diária</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Meta:</span>
+              <span className="font-medium">
+                {goalType === 'R$' ? `R$ ${dailyGoal.toFixed(2)}` : `${dailyGoal}%`}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Progresso Atual:</span>
+              <span className={`font-medium ${parseFloat(runningTotal) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                R$ {runningTotal}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">% da Meta:</span>
+              <span className={`font-medium ${parseFloat(runningTotal) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {(() => {
+                  const goalValue = goalType === 'R$' ? dailyGoal : (currentBankroll * dailyGoal / 100); // Usar currentBankroll para meta %
+                  const progressPercent = goalValue > 0 ? (parseFloat(runningTotal) / goalValue * 100) : 0;
+                  return `${progressPercent.toFixed(2)}%`;
+                })()}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

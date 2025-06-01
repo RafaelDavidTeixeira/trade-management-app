@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import TradeForm from './components/TradeForm';
 import TradeTable from './components/TradeTable';
 import StatsSection from './components/StatsSection';
@@ -16,10 +16,9 @@ import TransactionHistory from './components/TransactionHistory';
 const App = () => {
   const today = new Date().toISOString().split('T')[0];
 
+  // Estado para controlar carregamento de componentes
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
-  // Novo estado para erros gerais da aplicação
-  const [appError, setAppError] = useState(null);
 
   const [trades, setTrades] = useState(() => {
     try {
@@ -65,7 +64,7 @@ const App = () => {
     const saved = localStorage.getItem('stopWin');
     return saved ? parseFloat(saved) : 100;
   });
-
+  
   const [stopLossType, setStopLossType] = useState(() => {
     const saved = localStorage.getItem('stopLossType');
     return saved || 'R$';
@@ -74,12 +73,6 @@ const App = () => {
   const [stopWinType, setStopWinType] = useState(() => {
     const saved = localStorage.getItem('stopWinType');
     return saved || 'R$';
-  });
-
-  // Novo estado para a porcentagem de entrada
-  const [entryPercentage, setEntryPercentage] = useState(() => {
-    const saved = localStorage.getItem('entryPercentage');
-    return saved ? parseFloat(saved) : 1; // Padrão de 1%
   });
 
   const [lastDate, setLastDate] = useState(() => {
@@ -107,8 +100,8 @@ const App = () => {
 
   const [selectedDate, setSelectedDate] = useState(today);
   const [activeTab, setActiveTab] = useState('history');
-  const [activeReportTab, setActiveReportTab] = useState('daily');
-  const [activeImportTab, setActiveImportTab] = useState('csv');
+  const [activeReportTab, setActiveReportTab] = useState('daily'); // 'daily', 'period', 'dashboard'
+  const [activeImportTab, setActiveImportTab] = useState('csv'); // 'csv', 'image'
   const [showImportModal, setShowImportModal] = useState(false);
   const [formData, setFormData] = useState({
     date: today,
@@ -120,38 +113,10 @@ const App = () => {
     outcome: 'Positive',
   });
   const [editTrade, setEditTrade] = useState(null);
-  const [editTransaction, setEditTransaction] = useState(null);
   const [ocrData, setOcrData] = useState(null);
   const [isLoadingOcr, setIsLoadingOcr] = useState(false);
 
-  // Estados para o modal personalizado
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmModalMessage, setConfirmModalMessage] = useState('');
-  const [confirmModalAction, setConfirmModalAction] = useState(null);
-  const [showAlertModal, setShowAlertModal] = useState(false);
-  const [alertModalMessage, setAlertModalMessage] = useState('');
-
-  // Handler de erro global para capturar erros não tratados
-  // Este useEffect deve ser o primeiro a tentar capturar erros globais.
-  useEffect(() => {
-    const handleError = (event) => {
-      console.error("Erro global capturado:", event.error || event.reason);
-      setAppError(event.error || new Error(event.reason || "Erro desconhecido na aplicação."));
-      setLoadError("Ocorreu um erro crítico na aplicação. Por favor, recarregue a página.");
-      // Previne que o erro se propague e cause uma tela em branco total,
-      // embora em React, muitas vezes o erro já terá causado o crash.
-      event.preventDefault();
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleError);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleError);
-    };
-  }, []); // Executa apenas uma vez na montagem do componente
-
+  // Salvar dados no localStorage quando houver mudanças
   useEffect(() => {
     const saveData = () => {
       try {
@@ -166,14 +131,14 @@ const App = () => {
         localStorage.setItem('stopWinType', stopWinType);
         localStorage.setItem('assets', JSON.stringify(assets));
         localStorage.setItem('lastDate', lastDate);
-        localStorage.setItem('entryPercentage', entryPercentage.toString()); // Salva a porcentagem de entrada
       } catch (error) {
         console.error('Erro ao salvar dados no localStorage:', error);
       }
     };
     saveData();
-  }, [trades, transactions, dailyGoal, goalType, initialBankroll, stopLoss, stopWin, stopLossType, stopWinType, assets, lastDate, entryPercentage]);
+  }, [trades, transactions, dailyGoal, goalType, initialBankroll, stopLoss, stopWin, stopLossType, stopWinType, assets, lastDate]);
 
+  // Verificar mudança de data
   useEffect(() => {
     const checkDateChange = () => {
       const todayCheck = new Date().toISOString().split('T')[0];
@@ -188,89 +153,74 @@ const App = () => {
     return () => clearInterval(timer);
   }, [lastDate, initialBankroll, trades]);
 
+  // Calcular total acumulado de operações
   const runningTotal = useMemo(() => {
-    // Garante que runningTotal seja um número, com fallback para 0
-    const total = trades.reduce((sum, t) => sum + (parseFloat(t.profitLoss) || 0), 0);
-    return isNaN(total) ? 0 : total;
+    return trades.reduce((sum, t) => sum + (parseFloat(t.profitLoss) || 0), 0).toFixed(2);
   }, [trades]);
 
+  // Calcular total de depósitos e retiradas
   const transactionsTotal = useMemo(() => {
     const deposits = transactions
       .filter(t => t.type === 'deposit')
-      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+      .reduce((sum, t) => sum + t.amount, 0);
+      
     const withdrawals = transactions
       .filter(t => t.type === 'withdrawal')
-      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-    // Garante que transactionsTotal seja um número, com fallback para 0
-    const total = deposits - withdrawals;
-    return isNaN(total) ? 0 : total;
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    return deposits - withdrawals;
   }, [transactions]);
 
+  // Calcular capital atual (inicial + lucros/perdas + depósitos - retiradas)
   const currentBankroll = useMemo(() => {
-    const initial = parseFloat(initialBankroll) || 0;
-    const running = runningTotal || 0; // runningTotal já é um número
-    const transactions = transactionsTotal || 0; // transactionsTotal já é um número
-    const result = initial + running + transactions;
-    // Retorna um número, não uma string formatada aqui
-    return isNaN(result) ? 0 : result;
+    return initialBankroll + parseFloat(runningTotal) + transactionsTotal;
   }, [initialBankroll, runningTotal, transactionsTotal]);
 
+  // Verificar regras de capital
   const checkCapitalManagement = () => {
+    // Função mantida para compatibilidade, mas sem exibir popups
     const total = parseFloat(runningTotal);
-    let effectiveStopLoss = parseFloat(stopLoss);
+    
+    // Calcular stop loss efetivo
+    let effectiveStopLoss = stopLoss;
     if (stopLossType === '%') {
-      effectiveStopLoss = (currentBankroll * (stopLoss / 100)); // currentBankroll já é um número
+      effectiveStopLoss = (initialBankroll * (stopLoss / 100));
     }
-    let effectiveStopWin = parseFloat(stopWin);
+    
+    // Calcular stop win efetivo
+    let effectiveStopWin = stopWin;
     if (stopWinType === '%') {
-      effectiveStopWin = (currentBankroll * (stopWin / 100)); // currentBankroll já é um número
+      effectiveStopWin = (initialBankroll * (stopWin / 100));
     }
+    
+    // Popups removidos conforme solicitado pelo usuário
   };
 
   useEffect(() => {
     checkCapitalManagement();
-  }, [runningTotal, stopLoss, stopLossType, stopWin, stopWinType, currentBankroll]);
+  }, [runningTotal, stopLoss, stopLossType, stopWin, stopWinType, initialBankroll]);
 
+  // Manipulador de mudança de input no formulário
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => {
       const newFormData = { ...prev, [name]: value };
-
-      // Lógica para calcular profitLoss
-      if (name === 'asset' || name === 'betAmount' || name === 'outcome' || name === 'type') {
+      if (name === 'asset' || name === 'betAmount' || name === 'outcome') {
         const selectedAsset = name === 'asset' ? value : prev.asset;
         const betAmount = name === 'betAmount' ? parseFloat(value) || 0 : parseFloat(prev.betAmount) || 0;
         const outcome = name === 'outcome' ? value : prev.outcome;
-        const currentType = name === 'type' ? value : prev.type; // Captura o tipo atual
-
-        if (currentType === 'Copy') {
-          // Se o tipo for 'Copy', o profitLoss é inserido manualmente.
-          // Não alteramos newFormData.profitLoss aqui, pois ele virá do input direto.
-          // Apenas garantimos que 'outcome' não afete o cálculo automático.
-          // Se o campo de profitLoss for o que está sendo alterado, ele já está no newFormData.
-        } else {
-          // Lógica existente para outros tipos
-          const percentage = assets[selectedAsset] || 0;
-          newFormData.profitLoss = outcome === 'Positive'
-            ? (betAmount * percentage).toFixed(2)
-            : outcome === 'Tie'
-            ? '0.00'
-            : (-betAmount).toFixed(2);
-        }
+        const percentage = assets[selectedAsset] || 0;
+        newFormData.profitLoss = outcome === 'Positive'
+          ? (betAmount * percentage).toFixed(2)
+          : outcome === 'Tie'
+          ? '0.00'
+          : (-betAmount).toFixed(2);
       }
       return newFormData;
     });
   };
 
-  const handleTransactionInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditTransaction(prev => ({
-      ...prev,
-      [name]: value,
-      amount: name === 'amount' ? parseFloat(value) || 0 : prev.amount,
-    }));
-  };
-
+  // Adicionar ou editar trade
   const addTrade = (e) => {
     e.preventDefault();
     const newTrade = {
@@ -282,8 +232,8 @@ const App = () => {
       betAmount: parseFloat(formData.betAmount) || 0,
       profitLoss: parseFloat(formData.profitLoss) || 0,
     };
-    const updatedTrades = editTrade
-      ? trades.map(t => t.id === editTrade.id ? newTrade : t)
+    const updatedTrades = editTrade 
+      ? trades.map(t => t.id === editTrade.id ? newTrade : t) 
       : [...trades, newTrade];
     setTrades(updatedTrades);
     setFormData({
@@ -298,47 +248,26 @@ const App = () => {
     setEditTrade(null);
   };
 
+  // Adicionar transação (depósito ou retirada)
   const addTransaction = (transaction) => {
-    const newTransaction = {
-      ...transaction,
-      timestamp: editTransaction ? editTransaction.timestamp : Date.now(),
-      date: today, // Adiciona a data atual à transação
-      amount: parseFloat(transaction.amount) || 0,
-    };
-    const updatedTransactions = editTransaction
-      ? transactions.map(t => t.timestamp === editTransaction.timestamp ? newTransaction : t)
-      : [...transactions, newTransaction];
-    setTransactions(updatedTransactions);
-    setEditTransaction(null);
+    setTransactions([...transactions, transaction]);
   };
 
-  // Função para exibir o modal de confirmação personalizado
-  const showCustomConfirm = (message, action) => {
-    setConfirmModalMessage(message);
-    setConfirmModalAction(() => action); // Use uma função para armazenar a ação
-    setShowConfirmModal(true);
-  };
-
-  // Função para exibir o modal de alerta personalizado
-  const showCustomAlert = (message) => {
-    setAlertModalMessage(message);
-    setShowAlertModal(true);
-  };
-
+  // Excluir transação
   const deleteTransaction = (timestamp) => {
-    showCustomConfirm('Tem certeza que deseja excluir esta transação?', () => {
+    if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
       setTransactions(transactions.filter(t => t.timestamp !== timestamp));
-      setShowConfirmModal(false); // Fecha o modal após a ação
-    });
+    }
   };
 
+  // Excluir trade
   const deleteTrade = (id) => {
-    showCustomConfirm('Tem certeza que deseja excluir esta operação?', () => {
+    if (window.confirm('Tem certeza que deseja excluir esta operação?')) {
       setTrades(trades.filter(trade => trade.id !== id));
-      setShowConfirmModal(false); // Fecha o modal após a ação
-    });
+    }
   };
 
+  // Duplicar trade
   const duplicateTrade = (trade) => {
     setFormData({
       date: trade.date,
@@ -351,8 +280,9 @@ const App = () => {
     });
   };
 
+  // Editar trade
   const editTradeHandler = (trade) => {
-    console.log('Editing trade:', trade);
+    console.log('Editing trade:', trade); // Log para depuração
     setEditTrade(trade);
     setFormData({
       date: trade.date,
@@ -365,12 +295,9 @@ const App = () => {
     });
   };
 
-  const editTransactionHandler = (transaction) => {
-    setEditTransaction(transaction);
-  };
-
+  // Limpar todos os trades
   const clearAllTrades = () => {
-    showCustomConfirm('Tem certeza que deseja limpar todas as operações? Esta ação não pode ser desfeita.', () => {
+    if (window.confirm('Tem certeza que deseja limpar todas as operações? Esta ação não pode ser desfeita.')) {
       setTrades([]);
       setTransactions([]);
       setInitialBankroll(0.00);
@@ -389,10 +316,10 @@ const App = () => {
       localStorage.removeItem('stopWin');
       localStorage.removeItem('stopLossType');
       localStorage.removeItem('stopWinType');
-      setShowConfirmModal(false); // Fecha o modal após a ação
-    });
+    }
   };
 
+  // Processar screenshot com OCR
   const handleScreenshotUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -402,7 +329,7 @@ const App = () => {
       const worker = await createWorker('eng');
       const { data: { text } } = await worker.recognize(file);
       await worker.terminate();
-
+      
       const lines = text.split('\n').map(line => line.trim()).filter(line => line);
       const extracted = {
         date: lines.find(line => /\d{1,2}\/\d{1,2}\/\d{2,4}/.test(line)) || '',
@@ -412,16 +339,16 @@ const App = () => {
         profitLoss: '',
         outcome: lines.some(line => /loss|perda|-R\$/i.test(line)) ? 'Negative' : lines.some(line => /tie|empate/i.test(line)) ? 'Tie' : 'Positive',
       };
-
+      
       if (extracted.date) {
         const parts = extracted.date.split('/');
         if (parts.length === 3) {
           const [day, month, year] = parts;
-          const fullYear = year.length === 2 ? '20' + year : year;
-          extracted.date = fullYear + '-' + month.padStart(2, '0') + '-' + day.padStart(2, '0');
+          const fullYear = year.length === 2 ? `20${year}` : year;
+          extracted.date = `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         }
       }
-
+      
       const betAmount = parseFloat(extracted.betAmount) || 0;
       const percentage = assets[extracted.asset] || 0;
       extracted.profitLoss = extracted.outcome === 'Positive'
@@ -429,16 +356,17 @@ const App = () => {
         : extracted.outcome === 'Tie'
         ? '0.00'
         : (-betAmount).toFixed(2);
-
+      
       setOcrData(extracted);
       setFormData({ ...extracted, type: 'Crypto' });
     } catch (err) {
       console.error(err);
-      showCustomAlert('Erro ao processar a imagem. Verifique se a imagem está legível.');
+      alert('Erro ao processar a imagem. Verifique se a imagem está legível.');
     }
     setIsLoadingOcr(false);
   };
 
+  // Exportar dados
   const exportData = () => {
     const backupData = {
       trades,
@@ -451,7 +379,6 @@ const App = () => {
       stopLossType,
       stopWinType,
       assets,
-      entryPercentage, // Exporta a porcentagem de entrada
     };
     const json = JSON.stringify(backupData);
     const blob = new Blob([json], { type: 'application/json' });
@@ -463,6 +390,7 @@ const App = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Importar dados
   const importData = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -485,13 +413,14 @@ const App = () => {
         })).filter(t => t.betAmount && t.date && t.time && t.asset);
 
         setTrades([...trades, ...newTrades]);
-
+        
+        // Importar transações se existirem
         if (backupData.transactions) {
           const existingTransactionKeys = new Set(transactions.map(t => t.timestamp));
           const newTransactions = backupData.transactions.filter(t => !existingTransactionKeys.has(t.timestamp));
           setTransactions([...transactions, ...newTransactions]);
         }
-
+        
         if (backupData.initialBankroll) setInitialBankroll(parseFloat(backupData.initialBankroll));
         if (backupData.dailyGoal) setDailyGoal(parseFloat(backupData.dailyGoal));
         if (backupData.goalType) setGoalType(backupData.goalType);
@@ -500,23 +429,24 @@ const App = () => {
         if (backupData.stopLossType) setStopLossType(backupData.stopLossType);
         if (backupData.stopWinType) setStopWinType(backupData.stopWinType);
         if (backupData.assets) setAssets(backupData.assets);
-        if (backupData.entryPercentage) setEntryPercentage(parseFloat(backupData.entryPercentage)); // Importa a porcentagem de entrada
-
-        showCustomAlert(`Importação concluída: ${newTrades.length} novas operações adicionadas.`);
+        
+        alert(`Importação concluída: ${newTrades.length} novas operações adicionadas.`);
       } catch (err) {
         console.error(err);
-        showCustomAlert('Erro ao importar dados. Verifique se o arquivo está no formato correto.');
+        alert('Erro ao importar dados. Verifique se o arquivo está no formato correto.');
       }
     };
     reader.readAsText(file);
   };
 
+  // Importar operações via CSV
   const handleCSVImport = (importedTrades) => {
     if (!importedTrades || importedTrades.length === 0) {
-      showCustomAlert('Nenhuma operação válida para importar.');
+      alert('Nenhuma operação válida para importar.');
       return;
     }
-
+    
+    // Mapear para o formato correto e adicionar IDs
     const newTrades = importedTrades.map((trade, index) => ({
       id: Date.now() + index,
       date: trade.date,
@@ -526,19 +456,22 @@ const App = () => {
       betAmount: parseFloat(trade.amount) || 0,
       profitLoss: parseFloat(trade.profitLoss) || 0,
     }));
-
+    
+    // Adicionar ao estado
     setTrades([...trades, ...newTrades]);
     setShowImportModal(false);
-
-    showCustomAlert(`Importação concluída: ${newTrades.length} operações adicionadas.`);
+    
+    alert(`Importação concluída: ${newTrades.length} operações adicionadas.`);
   };
-
+  
+  // Importar operações via imagem
   const handleImageImport = (importedTrades) => {
     if (!importedTrades || importedTrades.length === 0) {
-      showCustomAlert('Nenhuma operação válida para importar.');
+      alert('Nenhuma operação válida para importar.');
       return;
     }
-
+    
+    // Mapear para o formato correto e adicionar IDs
     const newTrades = importedTrades.map((trade, index) => ({
       id: Date.now() + index,
       date: trade.date,
@@ -548,113 +481,126 @@ const App = () => {
       betAmount: parseFloat(trade.amount) || 0,
       profitLoss: parseFloat(trade.profitLoss) || 0,
     }));
-
+    
+    // Adicionar ao estado
     setTrades([...trades, ...newTrades]);
     setShowImportModal(false);
-
-    showCustomAlert(`Importação concluída: ${newTrades.length} operações adicionadas.`);
+    
+    alert(`Importação concluída: ${newTrades.length} operações adicionadas.`);
   };
 
+  // Calcular estatísticas
   const stats = useMemo(() => {
     const totalBet = trades.reduce((sum, t) => sum + (parseFloat(t.betAmount) || 0), 0);
     const gains = trades.reduce((sum, t) => t.profitLoss > 0 ? sum + parseFloat(t.profitLoss) || 0 : sum, 0);
     const losses = trades.reduce((sum, t) => t.profitLoss < 0 ? sum + parseFloat(t.profitLoss) || 0 : sum, 0);
     const ties = trades.filter(t => parseFloat(t.profitLoss) === 0).length;
-    const finalBalance = (gains + losses); // Retorna número
+    const finalBalance = gains + losses;
     const tradeCount = trades.length;
     const wins = trades.filter(t => parseFloat(t.profitLoss) > 0).length;
     const lossCount = trades.filter(t => parseFloat(t.profitLoss) < 0).length;
     const tieCount = ties;
-    const winRate = tradeCount > 0 ? (wins / tradeCount * 100) : 0; // Retorna número
-    const avgReturn = tradeCount > 0 ? (finalBalance / tradeCount) : 0; // Retorna número
-    const bestTrade = trades.reduce((best, t) => {
-      const profit = parseFloat(t.profitLoss) || 0;
-      return profit > (best?.profitLoss || -Infinity) ? t : best;
-    }, null);
-    const worstTrade = trades.reduce((worst, t) => {
-      const profit = parseFloat(t.profitLoss) || 0;
-      return profit < (worst?.profitLoss || Infinity) ? t : worst;
-    }, null);
-
+    const winRate = tradeCount > 0 ? (wins / tradeCount * 100).toFixed(2) : '0.00';
+    const avgReturn = tradeCount > 0 ? (finalBalance / tradeCount).toFixed(2) : '0.00';
+    
+    // Calcular melhor e pior operação
+    const profitLossValues = trades.map(t => parseFloat(t.profitLoss) || 0);
+    const bestTrade = tradeCount > 0 ? Math.max(...profitLossValues).toFixed(2) : '0.00';
+    const worstTrade = tradeCount > 0 ? Math.min(...profitLossValues).toFixed(2) : '0.00';
+    
     return {
-      totalBet: isNaN(totalBet) ? 0 : totalBet,
-      gains: isNaN(gains) ? 0 : gains,
-      losses: isNaN(losses) ? 0 : losses,
+      totalBet: totalBet.toFixed(2), // Adicionado toFixed(2)
+      gains: gains.toFixed(2), // Adicionado toFixed(2)
+      losses: losses.toFixed(2), // Adicionado toFixed(2)
       ties,
-      finalBalance: isNaN(finalBalance) ? 0 : finalBalance,
+      finalBalance: finalBalance.toFixed(2), // Adicionado toFixed(2)
       tradeCount,
       wins,
       lossCount,
       tieCount,
-      winRate: isNaN(winRate) ? 0 : winRate,
-      avgReturn: isNaN(avgReturn) ? 0 : avgReturn,
-      bestTrade,
-      worstTrade,
+      winRate,
+      avgReturn,
+      bestTrade, // Adicionado bestTrade
+      worstTrade, // Adicionado worstTrade
     };
   }, [trades]);
 
+  // Calcular relatório diário com try/catch para robustez
   const dailyReport = useMemo(() => {
     try {
       const dailyTrades = trades.filter(t => t.date === selectedDate);
       const dailyProfitLoss = dailyTrades.reduce((sum, t) => sum + (parseFloat(t.profitLoss) || 0), 0);
       const dailyTotalBet = dailyTrades.reduce((sum, t) => sum + (parseFloat(t.betAmount) || 0), 0);
 
-      let goalAmount = parseFloat(dailyGoal) || 0;
+      let goalAmount = dailyGoal;
       if (goalType === '%') {
-        const baseBankroll = currentBankroll; // currentBankroll já é um número
+        // Ensure initialBankroll is a number and not zero before calculating percentage
+        const baseBankroll = parseFloat(initialBankroll);
         if (!isNaN(baseBankroll) && baseBankroll !== 0) {
-          goalAmount = baseBankroll * (parseFloat(dailyGoal) / 100);
+           goalAmount = baseBankroll * (parseFloat(dailyGoal) / 100);
         } else {
-          goalAmount = parseFloat(dailyGoal);
-          console.warn("Current bankroll is zero or invalid for percentage goal calculation. Using fixed goal amount.");
+           // Default to fixed goal if bankroll is invalid for percentage calculation
+           goalAmount = parseFloat(dailyGoal);
+           console.warn("Initial bankroll is zero or invalid for percentage goal calculation. Using fixed goal amount.");
         }
+      } else {
+         goalAmount = parseFloat(dailyGoal);
       }
-
+      
+      // Ensure goalAmount is a valid number
       if (isNaN(goalAmount)) {
-        goalAmount = 0;
-        console.warn("Goal amount calculation resulted in NaN. Defaulting to 0.");
+          goalAmount = 0;
+          console.warn("Goal amount calculation resulted in NaN. Defaulting to 0.");
       }
 
-      const goalProgress = goalAmount !== 0 ? ((dailyProfitLoss / goalAmount) * 100) : 0; // Retorna número
+
       const metDailyGoal = dailyProfitLoss >= goalAmount;
-      const shortfall = Math.max(0, goalAmount - dailyProfitLoss); // Retorna número
-      const exceeded = Math.max(0, dailyProfitLoss - goalAmount); // Retorna número
+      const shortfall = Math.max(0, goalAmount - dailyProfitLoss).toFixed(2);
+      const exceeded = Math.max(0, dailyProfitLoss - goalAmount).toFixed(2);
+      
+      // Ensure runningTotal is available and formatted
+      const currentRunningTotal = parseFloat(runningTotal) || 0;
 
       return {
         tradeCount: dailyTrades.length,
-        totalBet: isNaN(dailyTotalBet) ? 0 : dailyTotalBet,
-        dailyProfitLoss: isNaN(dailyProfitLoss) ? 0 : dailyProfitLoss,
-        goalProgress: isNaN(goalProgress) ? 0 : goalProgress,
-        metDailyGoal,
-        shortfall: isNaN(shortfall) ? 0 : shortfall,
-        exceeded: isNaN(exceeded) ? 0 : exceeded,
-        runningTotal: runningTotal, // runningTotal já é um número
-        finalBalance: currentBankroll, // currentBankroll já é um número
+        totalBet: dailyTotalBet.toFixed(2),
+        dailyProfitLoss: dailyProfitLoss.toFixed(2),
+        metDailyGoal: metDailyGoal,
+        shortfall: shortfall,
+        exceeded: exceeded,
+        runningTotal: currentRunningTotal.toFixed(2) // Pass formatted runningTotal
       };
     } catch (error) {
       console.error("Erro ao calcular relatório diário:", error);
+      // Retornar objeto padrão em caso de erro
       return {
         tradeCount: 0,
-        totalBet: 0,
-        dailyProfitLoss: 0,
-        goalProgress: 0,
+        totalBet: '0.00',
+        dailyProfitLoss: '0.00',
         metDailyGoal: false,
-        shortfall: 0,
-        exceeded: 0,
-        runningTotal: 0,
-        finalBalance: 0,
+        shortfall: '0.00',
+        exceeded: '0.00',
+        runningTotal: (parseFloat(runningTotal) || 0).toFixed(2) // Still provide runningTotal if possible
       };
     }
-  }, [trades, selectedDate, dailyGoal, goalType, currentBankroll, runningTotal]);
+  }, [trades, selectedDate, dailyGoal, goalType, initialBankroll, runningTotal]); // Added runningTotal dependency
 
+
+  // Gerenciador de mudança de aba
   const handleTabChange = (tab) => {
     try {
       setIsLoading(true);
       setLoadError(null);
       setActiveTab(tab);
-      if (tab === 'reports' && activeTab !== 'reports') {
-        setActiveReportTab('daily');
+      
+      // Resetar sub-abas quando necessário
+      if (tab === 'reports') {
+        // Manter a sub-aba atual se já estiver na aba de relatórios
+        if (activeTab !== 'reports') {
+          setActiveReportTab('daily');
+        }
       }
+      
       setIsLoading(false);
     } catch (error) {
       console.error("Erro ao mudar de aba:", error);
@@ -663,6 +609,7 @@ const App = () => {
     }
   };
 
+  // Gerenciador de mudança de sub-aba de relatórios
   const handleReportTabChange = (tab) => {
     try {
       setIsLoading(true);
@@ -676,27 +623,9 @@ const App = () => {
     }
   };
 
-  // Centraliza a lógica de renderização do conteúdo principal
-  const renderMainContent = () => {
-    // Se houver um erro crítico na aplicação (appError), exibe a mensagem de erro
-    if (appError) {
-      return (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Erro Crítico!</strong>
-          <span className="block sm:inline"> {loadError || "Ocorreu um erro inesperado na aplicação. Por favor, recarregue a página."}</span>
-          <button
-            className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-            onClick={() => window.location.reload()}
-          >
-            Recarregar Aplicativo
-          </button>
-          {/* Opcional: Exibir detalhes do erro para depuração */}
-          {/* <pre className="mt-2 text-red-600 text-xs overflow-auto">{appError.stack}</pre> */}
-        </div>
-      );
-    }
-
-    // Se estiver carregando, mostra o spinner
+  // Renderizar conteúdo com base na aba ativa
+  const renderContent = () => {
+    // Se estiver carregando, mostrar indicador
     if (isLoading) {
       return (
         <div className="flex justify-center items-center h-64">
@@ -704,14 +633,14 @@ const App = () => {
         </div>
       );
     }
-
-    // Se houver um erro de carregamento específico da aba, mostra a mensagem
+    
+    // Se houver erro, mostrar mensagem
     if (loadError) {
       return (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
           <strong className="font-bold">Erro!</strong>
           <span className="block sm:inline"> {loadError}</span>
-          <button
+          <button 
             className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
             onClick={() => window.location.reload()}
           >
@@ -721,16 +650,16 @@ const App = () => {
       );
     }
 
-    // Renderiza o conteúdo da aba ativa
     try {
       switch (activeTab) {
         case 'history':
           return (
             <div>
               <h1 className="text-2xl font-bold mb-6 text-center text-primary">Trade Management App</h1>
+              
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <TradeForm
+                  <TradeForm 
                     formData={formData}
                     handleInputChange={handleInputChange}
                     addTrade={addTrade}
@@ -739,45 +668,37 @@ const App = () => {
                     handleScreenshotUpload={handleScreenshotUpload}
                     isLoadingOcr={isLoadingOcr}
                   />
+                  
                   <div className="mt-6">
                     <BankrollManagement
                       initialBankroll={initialBankroll}
                       setInitialBankroll={setInitialBankroll}
-                      currentBankroll={currentBankroll} // Passando como número
-                      runningTotal={runningTotal} // Passando como número
+                      currentBankroll={currentBankroll}
+                      runningTotal={runningTotal}
                       transactions={transactions}
                       addTransaction={addTransaction}
-                      editTransaction={editTransaction}
-                      handleTransactionInputChange={handleTransactionInputChange}
                     />
                   </div>
                 </div>
+                
                 <div>
-                  <StatsSection
-                    stats={stats} // stats.bestTrade e stats.worstTrade são objetos, garantir que StatsSection os renderize corretamente
-                    initialBankroll={initialBankroll}
-                    currentBankroll={currentBankroll} // Passando como número
-                    runningTotal={runningTotal} // Passando como número
-                    dailyGoal={dailyGoal}
-                    goalType={goalType}
-                    dailyReport={dailyReport}
-                    entryPercentage={entryPercentage} // Passa a porcentagem de entrada
-                  />
+                  <StatsSection stats={stats} initialBankroll={initialBankroll} currentBankroll={currentBankroll} runningTotal={runningTotal} dailyGoal={dailyGoal} goalType={goalType} />
+                  
                   <div className="mt-6">
-                    <GoalSection
+                    <GoalSection 
                       dailyGoal={dailyGoal}
                       setDailyGoal={setDailyGoal}
                       goalType={goalType}
                       setGoalType={setGoalType}
-                      runningTotal={runningTotal} // Passando como número
+                      runningTotal={parseFloat(runningTotal)}
                       initialBankroll={initialBankroll}
-                      currentBankroll={currentBankroll} // Passando como número
                     />
                   </div>
                 </div>
               </div>
+              
               <div className="mt-8">
-                <TradeTable
+                <TradeTable 
                   trades={trades}
                   deleteTrade={deleteTrade}
                   editTrade={editTradeHandler}
@@ -787,13 +708,14 @@ const App = () => {
                   clearAllTrades={clearAllTrades}
                 />
               </div>
+              
               <div className="mt-8">
-                <TransactionHistory
+                <TransactionHistory 
                   transactions={transactions}
                   onDeleteTransaction={deleteTransaction}
-                  onEditTransaction={editTransactionHandler}
                 />
               </div>
+              
               <div className="mt-8 flex justify-center space-x-4">
                 <button
                   onClick={() => setShowImportModal(true)}
@@ -823,7 +745,7 @@ const App = () => {
           return (
             <div>
               <h1 className="text-2xl font-bold mb-6 text-center text-primary">Trade Management App</h1>
-              <AssetsSection
+              <AssetsSection 
                 assets={assets}
                 setAssets={setAssets}
               />
@@ -833,6 +755,7 @@ const App = () => {
           return (
             <div>
               <h1 className="text-2xl font-bold mb-6 text-center text-primary">Trade Management App</h1>
+              
               <div className="mb-6 border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8">
                   <button
@@ -867,35 +790,42 @@ const App = () => {
                   </button>
                 </nav>
               </div>
-              {activeReportTab === 'daily' && (
-                <ReportsSection
-                  stats={stats}
-                  selectedDate={selectedDate}
-                  setSelectedDate={setSelectedDate}
-                  dailyReport={dailyReport}
-                  exportData={exportData}
-                  importData={importData}
+              
+              {activeReportTab === 'daily' && 
+                stats && typeof stats === 'object' && 
+                dailyReport && typeof dailyReport === 'object' && 
+                selectedDate && 
+                setSelectedDate && typeof setSelectedDate === 'function' && 
+                exportData && typeof exportData === 'function' && 
+                importData && typeof importData === 'function' && 
+              (
+                <ReportsSection 
+                  stats={stats} 
+                  selectedDate={selectedDate} 
+                  setSelectedDate={setSelectedDate} 
+                  dailyReport={dailyReport} 
+                  exportData={exportData} 
+                  importData={importData} 
                 />
               )}
-              {activeReportTab === 'period' && (
-                <PeriodGoalReport
+              
+              {activeReportTab === 'period' && trades && dailyGoal != null && goalType && initialBankroll != null && (
+                <PeriodGoalReport 
                   trades={trades}
                   dailyGoal={dailyGoal}
                   goalType={goalType}
                   initialBankroll={initialBankroll}
-                  currentBankroll={currentBankroll} // Passando como número
                 />
               )}
-              {activeReportTab === 'dashboard' && (
-                <DashboardView
+              
+              {activeReportTab === 'dashboard' && trades && dailyGoal != null && goalType && initialBankroll != null && assets && (
+                <DashboardView 
                   trades={trades}
                   dailyGoal={dailyGoal}
                   goalType={goalType}
                   initialBankroll={initialBankroll}
-                  currentBankroll={currentBankroll} // Passando como número
+                  currentBankroll={currentBankroll} // Adicionado currentBankroll
                   assets={assets}
-                  stats={stats}
-                  dailyReport={dailyReport}
                 />
               )}
             </div>
@@ -904,7 +834,7 @@ const App = () => {
           return (
             <div>
               <h1 className="text-2xl font-bold mb-6 text-center text-primary">Trade Management App</h1>
-              <CapitalManagement
+              <CapitalManagement 
                 stopLoss={stopLoss}
                 setStopLoss={setStopLoss}
                 stopWin={stopWin}
@@ -914,9 +844,6 @@ const App = () => {
                 stopWinType={stopWinType}
                 setStopWinType={setStopWinType}
                 initialBankroll={initialBankroll}
-                currentBankroll={currentBankroll} // Passando como número
-                entryPercentage={entryPercentage} // Passa a porcentagem de entrada
-                setEntryPercentage={setEntryPercentage} // Passa a função para atualizar
               />
             </div>
           );
@@ -935,66 +862,36 @@ const App = () => {
           );
       }
     } catch (error) {
-      console.error("Erro ao renderizar conteúdo da aba:", error);
-      // Se um erro ocorrer dentro de um switch case, ele será capturado aqui
-      // e definirá appError para que o erro crítico seja exibido.
-      setAppError(error);
-      setLoadError("Ocorreu um erro ao carregar esta seção. Por favor, tente novamente.");
-      return null; // Retorna null para permitir que o estado appError assuma o controle da renderização
+      console.error("Erro ao renderizar conteúdo:", error);
+      return (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Erro!</strong>
+          <span className="block sm:inline"> Ocorreu um erro ao carregar esta seção.</span>
+          <button 
+            className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            onClick={() => {
+              setActiveTab('history');
+              window.location.reload();
+            }}
+          >
+            Voltar para o Histórico
+          </button>
+        </div>
+      );
     }
   };
 
-  const renderCustomModal = () => {
-    if (!showConfirmModal && !showAlertModal) return null;
-
-    const message = showConfirmModal ? confirmModalMessage : alertModalMessage;
-    const isConfirm = showConfirmModal;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm mx-4">
-          <h3 className="text-lg font-semibold mb-4">{isConfirm ? 'Confirmação' : 'Aviso'}</h3>
-          <p className="text-gray-700 mb-6">{message}</p>
-          <div className="flex justify-end space-x-4">
-            {isConfirm && (
-              <button
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  setConfirmModalAction(null);
-                }}
-                className="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
-            )}
-            <button
-              onClick={() => {
-                if (isConfirm && confirmModalAction) {
-                  confirmModalAction();
-                } else if (!isConfirm) {
-                  setShowAlertModal(false);
-                }
-              }}
-              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-            >
-              {isConfirm ? 'Confirmar' : 'OK'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
+  // Modal de importação
   const renderImportModal = () => {
     if (!showImportModal) return null;
-
+    
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl p-4 w-full max-w-4xl">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl">
           <div className="p-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold">Importar Operações</h2>
-              <button
+              <button 
                 onClick={() => setShowImportModal(false)}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1004,6 +901,7 @@ const App = () => {
               </button>
             </div>
           </div>
+          
           <div className="p-4">
             <div className="mb-6 border-b border-gray-200">
               <nav className="-mb-px flex space-x-8">
@@ -1029,14 +927,16 @@ const App = () => {
                 </button>
               </nav>
             </div>
+            
             {activeImportTab === 'csv' && (
-              <CSVImporter
+              <CSVImporter 
                 onImport={handleCSVImport}
                 onCancel={() => setShowImportModal(false)}
               />
             )}
+            
             {activeImportTab === 'image' && (
-              <ImageImporter
+              <ImageImporter 
                 onImport={handleImageImport}
                 onCancel={() => setShowImportModal(false)}
                 assets={assets}
@@ -1094,9 +994,9 @@ const App = () => {
           </button>
         </nav>
       </div>
-      {renderMainContent()} {/* Chama a função centralizada de renderização */}
+      
+      {renderContent()}
       {renderImportModal()}
-      {renderCustomModal()}
     </div>
   );
 };

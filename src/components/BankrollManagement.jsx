@@ -1,133 +1,173 @@
 import React, { useState, useEffect } from 'react';
+import TransactionModal from './TransactionModal';
 
-const BankrollManagement = ({
-  initialBankroll,
-  setInitialBankroll,
-  currentBankroll,
+const BankrollManagement = ({ 
+  initialBankroll, 
+  setInitialBankroll, 
+  currentBankroll, 
   runningTotal,
-  transactions, // Embora não utilizado diretamente no formulário, é passado para o App
-  addTransaction,
-  editTransaction, // Prop que indica a transação a ser editada
+  transactions,
+  addTransaction
 }) => {
-  // Estados locais para o formulário de transação
-  const [transactionType, setTransactionType] = useState('deposit');
-  const [transactionAmount, setTransactionAmount] = useState('');
-  const [transactionDescription, setTransactionDescription] = useState('');
-
-  // useEffect para preencher o formulário quando 'editTransaction' muda (modo de edição)
-  useEffect(() => {
-    if (editTransaction) {
-      // Se há uma transação para editar, preenche os campos do formulário
-      setTransactionType(editTransaction.type);
-      setTransactionAmount(editTransaction.amount.toString());
-      setTransactionDescription(editTransaction.description || '');
+  // Estados para controlar os modais
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  
+  // Estado local para controlar o valor editável
+  const [editingInitialBankroll, setEditingInitialBankroll] = useState(false);
+  const [tempInitialBankroll, setTempInitialBankroll] = useState(initialBankroll.toFixed(2));
+  
+  // Calcular a variação percentual
+  const percentChange = initialBankroll > 0 
+    ? ((currentBankroll / initialBankroll - 1) * 100).toFixed(2)
+    : '0.00';
+  
+  // Determinar a classe de cor com base no resultado
+  const resultColorClass = parseFloat(runningTotal) >= 0 ? 'text-green-600' : 'text-red-600';
+  
+  // Função para salvar o valor editado
+  const handleSaveInitialBankroll = () => {
+    const newValue = parseFloat(tempInitialBankroll);
+    if (!isNaN(newValue) && newValue >= 0) {
+      setInitialBankroll(newValue);
     } else {
-      // Se não há transação em edição, limpa o formulário
-      setTransactionType('deposit');
-      setTransactionAmount('');
-      setTransactionDescription('');
+      setTempInitialBankroll(initialBankroll.toFixed(2));
     }
-  }, [editTransaction]); // Depende de editTransaction
-
-  const handleAddTransaction = (e) => {
-    e.preventDefault();
-    if (transactionAmount === '' || parseFloat(transactionAmount) <= 0) {
-      // Usando alert() temporariamente para feedback, mas idealmente seria um modal
-      alert('Por favor, insira um valor válido para a transação.');
-      return;
-    }
-    // Chama a função addTransaction do componente pai (App.jsx)
-    addTransaction({
-      type: transactionType,
-      amount: parseFloat(transactionAmount),
-      description: transactionDescription,
-      // A data já é adicionada no App.jsx ao chamar addTransaction
-    });
-    // Limpa o formulário após adicionar/atualizar
-    setTransactionAmount('');
-    setTransactionDescription('');
-    setTransactionType('deposit'); // Reseta para o padrão
+    setEditingInitialBankroll(false);
   };
-
-  // Garante que os valores são números antes de formatar para exibição
-  const formattedInitialBankroll = typeof initialBankroll === 'number' ? initialBankroll.toFixed(2) : parseFloat(initialBankroll || 0).toFixed(2);
-  const formattedCurrentBankroll = typeof currentBankroll === 'number' ? currentBankroll.toFixed(2) : parseFloat(currentBankroll || 0).toFixed(2);
-  const formattedRunningTotal = typeof runningTotal === 'number' ? runningTotal.toFixed(2) : parseFloat(runningTotal || 0).toFixed(2);
-
+  
+  // Função para lidar com mudanças no input
+  const handleInputChange = (e) => {
+    setTempInitialBankroll(e.target.value);
+  };
+  
+  // Função para lidar com tecla Enter
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveInitialBankroll();
+    } else if (e.key === 'Escape') {
+      setTempInitialBankroll(initialBankroll.toFixed(2));
+      setEditingInitialBankroll(false);
+    }
+  };
+  
+  // Forçar modo de edição ao montar o componente se o valor inicial for zero
+  useEffect(() => {
+    if (initialBankroll === 0) {
+      setEditingInitialBankroll(true);
+    }
+  }, []);
+  
+  // Função para lidar com transações
+  const handleTransaction = (transaction) => {
+    addTransaction(transaction);
+  };
+  
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h2 className="text-xl font-semibold mb-4 text-primary">Gestão de Banca</h2>
-
-      <div className="mb-4">
-        <p className="text-gray-700">Banca Inicial: <span className="font-bold">R$ {formattedInitialBankroll}</span></p>
-        <p className="text-gray-700">Lucro/Prejuízo das Operações: <span className={`font-bold ${runningTotal >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {formattedRunningTotal}</span></p>
-        <p className="text-gray-700 text-lg">Banca Atual: <span className="font-bold text-green-600">R$ {formattedCurrentBankroll}</span></p>
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="initialBankrollInput">
-          Ajustar Banca Inicial:
-        </label>
-        <input
-          type="number"
-          step="0.01"
-          id="initialBankrollInput"
-          name="initialBankrollInput"
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          value={initialBankroll}
-          onChange={(e) => setInitialBankroll(parseFloat(e.target.value) || 0)}
-        />
-      </div>
-
-      <h3 className="text-lg font-semibold mb-3 text-primary">Transações de Banca</h3>
-      <form onSubmit={handleAddTransaction} className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label htmlFor="transactionType" className="block text-gray-700 text-sm font-bold mb-2">Tipo</label>
-            <select
-              id="transactionType"
-              name="type"
-              className="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={transactionType}
-              onChange={(e) => setTransactionType(e.target.value)}
-            >
-              <option value="deposit">Depósito</option>
-              <option value="withdrawal">Retirada</option>
-            </select>
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Gestão de Capital</h2>
+      
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2 md:col-span-1">
+            <div className="text-sm text-gray-600">Capital Inicial</div>
+            {editingInitialBankroll ? (
+              <div className="flex items-center">
+                <input
+                  type="number"
+                  value={tempInitialBankroll}
+                  onChange={handleInputChange}
+                  onBlur={handleSaveInitialBankroll}
+                  onKeyDown={handleKeyDown}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary text-xl font-bold"
+                  step="0.01"
+                  min="0"
+                  autoFocus
+                />
+                <span className="ml-2 text-gray-600">R$</span>
+              </div>
+            ) : (
+              <div 
+                className="text-2xl font-bold cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+                onClick={() => setEditingInitialBankroll(true)}
+                title="Clique para editar"
+              >
+                R$ {parseFloat(initialBankroll).toFixed(2)}
+              </div>
+            )}
           </div>
-          <div>
-            <label htmlFor="transactionAmount" className="block text-gray-700 text-sm font-bold mb-2">Valor</label>
-            <input
-              type="number"
-              step="0.01"
-              id="transactionAmount"
-              name="amount"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={transactionAmount}
-              onChange={(e) => setTransactionAmount(e.target.value)}
-              placeholder="0.00"
-            />
+          
+          <div className="col-span-2 md:col-span-1">
+            <div className="text-sm text-gray-600">Capital Atual</div>
+            <div className={`text-2xl font-bold ${currentBankroll >= initialBankroll ? 'text-green-600' : 'text-red-600'}`}>
+              R$ {currentBankroll.toFixed(2)}
+            </div>
           </div>
-          <div>
-            <label htmlFor="transactionDescription" className="block text-gray-700 text-sm font-bold mb-2">Descrição (Opcional)</label>
-            <input
-              type="text"
-              id="transactionDescription"
-              name="description"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              value={transactionDescription}
-              onChange={(e) => setTransactionDescription(e.target.value)}
-              placeholder="Ex: Bônus de boas-vindas"
-            />
+          
+          <div className="col-span-2 md:col-span-1">
+            <div className="text-sm text-gray-600">Lucro/Prejuízo</div>
+            <div className={`text-2xl font-bold ${resultColorClass}`}>
+              R$ {runningTotal}
+            </div>
+          </div>
+          
+          <div className="col-span-2 md:col-span-1">
+            <div className="text-sm text-gray-600">Variação</div>
+            <div className={`text-2xl font-bold ${parseFloat(percentChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {percentChange}%
+            </div>
           </div>
         </div>
-        <button
-          type="submit"
-          className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-        >
-          {editTransaction ? 'Atualizar Transação' : 'Adicionar Transação'}
-        </button>
-      </form>
+        
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="text-sm text-gray-600 mb-2">Evolução do Capital</div>
+          <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className={`h-full ${parseFloat(runningTotal) >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
+              style={{ 
+                width: `${Math.min(Math.abs(parseFloat(percentChange)), 100)}%`,
+                marginLeft: parseFloat(runningTotal) >= 0 ? '0' : 'auto',
+                marginRight: parseFloat(runningTotal) >= 0 ? 'auto' : '0'
+              }}
+            ></div>
+          </div>
+          <div className="flex justify-between mt-1 text-xs text-gray-500">
+            <span>-100%</span>
+            <span>0%</span>
+            <span>+100%</span>
+          </div>
+        </div>
+        
+        <div className="mt-6 flex justify-center space-x-4">
+          <button
+            onClick={() => setShowDepositModal(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            Registrar Depósito
+          </button>
+          <button
+            onClick={() => setShowWithdrawalModal(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Registrar Retirada
+          </button>
+        </div>
+      </div>
+      
+      {/* Modais de Depósito e Retirada */}
+      <TransactionModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        onSubmit={handleTransaction}
+        type="deposit"
+      />
+      
+      <TransactionModal
+        isOpen={showWithdrawalModal}
+        onClose={() => setShowWithdrawalModal(false)}
+        onSubmit={handleTransaction}
+        type="withdrawal"
+      />
     </div>
   );
 };
