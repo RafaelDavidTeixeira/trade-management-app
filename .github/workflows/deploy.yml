@@ -10,31 +10,48 @@ jobs:
     runs-on: ubuntu-latest # Usa o ambiente Ubuntu mais recente para rodar os passos
 
     steps:
-    - name: Checkout repository # Pega o código do seu repositório
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup Node.js # Configura o ambiente Node.js
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20' # Use a versão do Node.js que você está usando (20 é uma boa padrão)
-        cache: 'npm' # Habilita o cache de dependências do npm para builds mais rápidos
+        node-version: '20' # Verifique se esta versão corresponde à sua local
+        cache: 'npm'
 
-    # --- INÍCIO DA NOVA CORREÇÃO: LIMPAR CACHE E REINSTALAR ---
-    - name: Clear npm cache # Limpa o cache do npm para garantir uma instalação limpa
-      run: npm cache clean --force
+    - name: Clear npm cache and force install dependencies
+      run: | # O símbolo '|' permite múltiplos comandos
+        npm cache clean --force
+        npm install --force
 
-    - name: Install dependencies # Instala as dependências do seu projeto
-      run: npm install --force # Usa --force para garantir que tudo seja reinstalado
-    # --- FIM DA NOVA CORREÇÃO ---
+    # --- INÍCIO DOS PASSOS DE DIAGNÓSTICO E CORREÇÃO ---
+    - name: Diagnose permissions BEFORE chmod
+      run: |
+        echo "Permissions for esbuild before chmod:"
+        ls -la node_modules/@esbuild/linux-x64/bin/esbuild || true
+        echo "Permissions for vite binary before chmod:"
+        ls -la node_modules/.bin/vite || true
+        echo "Permissions for node_modules/.bin/ directory before chmod:"
+        ls -la node_modules/.bin/ || true
 
-    - name: Grant execute permissions to node_modules binaries # Damos permissão de execução a todos os binários na pasta .bin
+    - name: Grant execute permissions to node_modules binaries
       run: chmod -R +x node_modules/.bin/
 
-    - name: Build React app # Constrói seu aplicativo React com Vite
+    - name: Diagnose permissions AFTER chmod
+      run: |
+        echo "Permissions for esbuild AFTER chmod:"
+        ls -la node_modules/@esbuild/linux-x64/bin/esbuild || true
+        echo "Permissions for vite binary AFTER chmod:"
+        ls -la node_modules/.bin/vite || true
+        echo "Permissions for node_modules/.bin/ directory AFTER chmod:"
+        ls -la node_modules/.bin/ || true
+    # --- FIM DOS PASSOS DE DIAGNÓSTICO E CORREÇÃO ---
+
+    - name: Build React app
       run: npm run build
 
-    - name: Deploy to GitHub Pages # Implanta o aplicativo construído no GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3 # Action específica para GitHub Pages
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }} # Token de acesso fornecido automaticamente pelo GitHub
-        publish_dir: ./dist # A pasta 'dist' é onde o Vite coloca os arquivos de build
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist
