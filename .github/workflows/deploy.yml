@@ -3,11 +3,11 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main # Dispara o workflow quando há um push na branch 'main'
+      - main
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest # Usa o ambiente Ubuntu mais recente para rodar os passos
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
@@ -16,7 +16,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20' # Verifique se esta versão corresponde à sua local
+        node-version: '20'
         cache: 'npm'
 
     - name: Clear npm cache and force install dependencies
@@ -24,15 +24,13 @@ jobs:
         npm cache clean --force
         npm install --force
 
-    # --- INÍCIO DA CORREÇÃO DEFINITIVA DE PERMISSÕES ---
     - name: Grant execute permissions to node_modules binaries
       run: chmod -R +x node_modules/.bin/
 
     - name: Grant execute permissions to esbuild binary
-      run: chmod +x node_modules/@esbuild/linux-x64/bin/esbuild # AGORA ESTA LINHA SERÁ EFICAZ!
-    # --- FIM DA CORREÇÃO DEFINITIVA ---
+      run: chmod +x node_modules/@esbuild/linux-x64/bin/esbuild
 
-    # --- INÍCIO DOS PASSOS DE DIAGNÓSTICO (OPCIONAIS, mas úteis para confirmação) ---
+    # --- PASSOS DE DIAGNÓSTICO (MANTIDOS POR ENQUANTO) ---
     - name: Diagnose permissions AFTER all chmod commands
       run: |
         echo "Permissions for esbuild AFTER all chmod commands:"
@@ -46,8 +44,13 @@ jobs:
     - name: Build React app
       run: npm run build
 
+    - name: Diagnose 'dist' directory content # NOVO PASSO DE DIAGNÓSTICO
+      run: |
+        echo "Content of dist directory:"
+        ls -la dist/ || true # Lista o conteúdo da pasta dist
+
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./dist
+        publish_dir: ./dist # Mantido, mas se der erro de cp, podemos tentar ${GITHUB_WORKSPACE}/dist
