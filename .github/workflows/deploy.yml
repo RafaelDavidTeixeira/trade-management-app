@@ -19,13 +19,16 @@ jobs:
         node-version: '20' # Use a versão do Node.js que você está usando (20 é uma boa padrão)
         cache: 'npm' # Habilita o cache de dependências do npm para builds mais rápidos
 
-    - name: Install dependencies # Instala as dependências do seu projeto
-      run: npm install
+    # --- INÍCIO DA NOVA CORREÇÃO: LIMPAR CACHE E REINSTALAR ---
+    - name: Clear npm cache # Limpa o cache do npm para garantir uma instalação limpa
+      run: npm cache clean --force
 
-    # --- INÍCIO DA CORREÇÃO PARA O ERRO 'Permission denied' do Vite ---
+    - name: Install dependencies # Instala as dependências do seu projeto
+      run: npm install --force # Usa --force para garantir que tudo seja reinstalado
+    # --- FIM DA NOVA CORREÇÃO ---
+
     - name: Grant execute permissions to node_modules binaries # Damos permissão de execução a todos os binários na pasta .bin
       run: chmod -R +x node_modules/.bin/
-    # --- FIM DA CORREÇÃO ---
 
     - name: Build React app # Constrói seu aplicativo React com Vite
       run: npm run build
