@@ -20,32 +20,28 @@ jobs:
         cache: 'npm'
 
     - name: Clear npm cache and force install dependencies
-      run: | # O símbolo '|' permite múltiplos comandos
+      run: |
         npm cache clean --force
         npm install --force
 
-    # --- INÍCIO DOS PASSOS DE DIAGNÓSTICO E CORREÇÃO ---
-    - name: Diagnose permissions BEFORE chmod
-      run: |
-        echo "Permissions for esbuild before chmod:"
-        ls -la node_modules/@esbuild/linux-x64/bin/esbuild || true
-        echo "Permissions for vite binary before chmod:"
-        ls -la node_modules/.bin/vite || true
-        echo "Permissions for node_modules/.bin/ directory before chmod:"
-        ls -la node_modules/.bin/ || true
-
+    # --- INÍCIO DA CORREÇÃO DEFINITIVA DE PERMISSÕES ---
     - name: Grant execute permissions to node_modules binaries
       run: chmod -R +x node_modules/.bin/
 
-    - name: Diagnose permissions AFTER chmod
+    - name: Grant execute permissions to esbuild binary
+      run: chmod +x node_modules/@esbuild/linux-x64/bin/esbuild # AGORA ESTA LINHA SERÁ EFICAZ!
+    # --- FIM DA CORREÇÃO DEFINITIVA ---
+
+    # --- INÍCIO DOS PASSOS DE DIAGNÓSTICO (OPCIONAIS, mas úteis para confirmação) ---
+    - name: Diagnose permissions AFTER all chmod commands
       run: |
-        echo "Permissions for esbuild AFTER chmod:"
+        echo "Permissions for esbuild AFTER all chmod commands:"
         ls -la node_modules/@esbuild/linux-x64/bin/esbuild || true
-        echo "Permissions for vite binary AFTER chmod:"
+        echo "Permissions for vite binary AFTER all chmod commands:"
         ls -la node_modules/.bin/vite || true
-        echo "Permissions for node_modules/.bin/ directory AFTER chmod:"
+        echo "Permissions for node_modules/.bin/ directory AFTER all chmod commands:"
         ls -la node_modules/.bin/ || true
-    # --- FIM DOS PASSOS DE DIAGNÓSTICO E CORREÇÃO ---
+    # --- FIM DOS PASSOS DE DIAGNÓSTICO ---
 
     - name: Build React app
       run: npm run build
