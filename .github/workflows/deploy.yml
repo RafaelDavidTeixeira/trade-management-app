@@ -22,9 +22,9 @@ jobs:
     - name: Install dependencies # Instala as dependências do seu projeto
       run: npm install
 
-    # --- INÍCIO DA CORREÇÃO PARA O ERRO 'EACCES' ---
-    - name: Grant execute permissions to esbuild # Damos permissão de execução ao binário do esbuild
-      run: chmod +x node_modules/@esbuild/linux-x64/bin/esbuild
+    # --- INÍCIO DA CORREÇÃO PARA O ERRO 'Permission denied' do Vite ---
+    - name: Grant execute permissions to node_modules binaries # Damos permissão de execução a todos os binários na pasta .bin
+      run: chmod -R +x node_modules/.bin/
     # --- FIM DA CORREÇÃO ---
 
     - name: Build React app # Constrói seu aplicativo React com Vite
