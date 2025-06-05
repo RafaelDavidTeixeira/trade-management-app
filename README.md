@@ -135,3 +135,6 @@ Na aba **Relatórios**:
 ## Suporte
 
 Para suporte ou dúvidas, entre em contato através do email: suporte@trademanagementapp.com
+"# Rdavid_Trade_App" 
+"# Rdavid_Trade_App" 
+"# trade-management-app" 

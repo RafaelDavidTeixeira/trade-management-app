@@ -1,131 +1,136 @@
+// components/TradeForm.jsx
 import React from 'react';
 
-const TradeForm = ({ 
-  formData, 
-  handleInputChange, 
-  addTrade, 
-  editTrade, 
-  assets, 
-  handleScreenshotUpload, 
-  isLoadingOcr 
-}) => {
+const TradeForm = ({ formData, handleInputChange, addTrade, editTrade, assets, handleScreenshotUpload, isLoadingOcr }) => {
+  const isCopyType = formData.type === 'Copy';
+
   return (
-    <div className="mb-6">
-      <h2 className="text-xl font-semibold mb-4">
-        {editTrade ? 'Editar Operação' : 'Nova Operação'}
-      </h2>
-      
-      <form onSubmit={addTrade} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="bg-white p-6 rounded-lg shadow-md">
+      <h2 className="text-xl font-semibold mb-4 text-primary">{editTrade ? 'Editar Operação' : 'Nova Operação'}</h2>
+      <form onSubmit={addTrade}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+            <label htmlFor="date" className="block text-gray-700 text-sm font-bold mb-2">Data</label>
             <input
               type="date"
+              id="date"
               name="date"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={formData.date}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
               required
             />
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
+            <label htmlFor="time" className="block text-gray-700 text-sm font-bold mb-2">Hora</label>
             <input
               type="time"
+              id="time"
               name="time"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={formData.time}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
               required
-              step="1"
             />
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ativo</label>
+            <label htmlFor="asset" className="block text-gray-700 text-sm font-bold mb-2">Ativo</label>
             <select
+              id="asset"
               name="asset"
+              className="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={formData.asset}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
               required
             >
               {Object.keys(assets).map(asset => (
-                <option key={asset} value={asset}>
-                  {asset} ({(assets[asset] * 100).toFixed(0)}%)
-                </option>
+                <option key={asset} value={asset}>{asset}</option>
               ))}
             </select>
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+            <label htmlFor="type" className="block text-gray-700 text-sm font-bold mb-2">Tipo</label>
             <select
+              id="type"
               name="type"
+              className="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={formData.type}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              required
             >
               <option value="Crypto">Crypto</option>
               <option value="Forex">Forex</option>
-              <option value="Stocks">Ações</option>
-              <option value="Commodities">Commodities</option>
+              <option value="Stocks">Stocks</option>
+              <option value="Copy">Copy</option> {/* Nova opção */}
             </select>
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Valor Apostado (R$)</label>
+            <label htmlFor="betAmount" className="block text-gray-700 text-sm font-bold mb-2">Valor Apostado</label>
             <input
               type="number"
+              step="0.01"
+              id="betAmount"
               name="betAmount"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={formData.betAmount}
               onChange={handleInputChange}
-              step="0.01"
-              min="0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="0.00"
               required
             />
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Resultado</label>
+            <label htmlFor="outcome" className="block text-gray-700 text-sm font-bold mb-2">Resultado</label>
             <select
+              id="outcome"
               name="outcome"
+              className="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={formData.outcome}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              required
             >
               <option value="Positive">Positivo</option>
               <option value="Negative">Negativo</option>
               <option value="Tie">Empate</option>
             </select>
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lucro/Prejuízo (R$)</label>
+            <label htmlFor="profitLoss" className="block text-gray-700 text-sm font-bold mb-2">Lucro/Prejuízo</label>
             <input
               type="number"
+              step="0.01"
+              id="profitLoss"
               name="profitLoss"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
               value={formData.profitLoss}
               onChange={handleInputChange}
-              step="0.01"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-              readOnly
+              placeholder="0.00"
+              required
+              // REMOVIDO: disabled={!isCopyType}
             />
           </div>
-          
         </div>
-        
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-          >
-            {editTrade ? 'Atualizar Operação' : 'Adicionar Operação'}
-          </button>
-        </div>
+        <button
+          type="submit"
+          className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+        >
+          {editTrade ? 'Atualizar Operação' : 'Adicionar Operação'}
+        </button>
       </form>
+
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-3 text-primary">Importar de Captura de Tela</h3>
+        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="screenshotUpload">
+          Carregar Imagem:
+        </label>
+        <input
+          type="file"
+          id="screenshotUpload"
+          accept="image/*"
+          onChange={handleScreenshotUpload}
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+        />
+        {isLoadingOcr && <p className="text-blue-500 mt-2">Processando imagem...</p>}
+      </div>
     </div>
   );
 };
