@@ -8,11 +8,10 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions: # <--- Adicione este bloco aqui
+    permissions: # <--- ESTE BLOCO DE PERMISSÕES É CRUCIAL
       contents: write # Permite que o GITHUB_TOKEN escreva no repositório
       pages: write    # Permite que o GITHUB_TOKEN gerencie o GitHub Pages
       id-token: write # Boa prática, necessário para OIDC se você usar
-                      # (não afeta diretamente o problema atual, mas útil)
 
     steps:
     - name: Checkout repository
@@ -49,13 +48,13 @@ jobs:
     - name: Build React app
       run: npm run build
 
-    - name: Diagnose 'dist' directory content # NOVO PASSO DE DIAGNÓSTICO
+    - name: Diagnose 'dist' directory content
       run: |
         echo "Content of dist directory:"
-        ls -la dist/ || true # Lista o conteúdo da pasta dist
+        ls -la dist/ || true
 
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./dist # Mantido, mas se der erro de cp, podemos tentar ${GITHUB_WORKSPACE}/dist
+        publish_dir: ./dist
