@@ -8,6 +8,11 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions: # <--- Adicione este bloco aqui
+      contents: write # Permite que o GITHUB_TOKEN escreva no repositório
+      pages: write    # Permite que o GITHUB_TOKEN gerencie o GitHub Pages
+      id-token: write # Boa prática, necessário para OIDC se você usar
+                      # (não afeta diretamente o problema atual, mas útil)
 
     steps:
     - name: Checkout repository
