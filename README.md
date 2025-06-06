@@ -138,3 +138,4 @@ Para suporte ou dúvidas, entre em contato através do email: suporte@trademanag
 "# Rdavid_Trade_App" 
 "# Rdavid_Trade_App" 
 "# trade-management-app" 
+"# trade-management-app" 
